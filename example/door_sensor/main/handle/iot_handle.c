@@ -137,11 +137,24 @@ void Post_to_Cloud_Directly(int8_t *u8pProperty_Payload, uint32_t u32Offset)
 
         osSemaphoreWait(g_tAppSemaphoreId, osWaitForever);
         osTimerStop(g_tmr_req_date);
+
+        if (true == BleWifi_COM_EventStatusGet(g_tIotDataEventGroup, IOT_DATA_EVENT_BIT_WAITING_RX_RSP))
+        {
+            if (IOT_DATA_WAITING_TYPE_DATA_POST == g_u8WaitingRspType)
+            {
+                printf("[ATS]WIFI Send data fail(%llu)\r\n", g_msgid);
+            }
+        }
+        osTimerStop(g_iot_tx_wait_timeout_timer);
+        g_u8WaitingRspType = IOT_DATA_WAITING_TYPE_NONE;
+        BleWifi_COM_EventStatusSet(g_tIotDataEventGroup, IOT_DATA_EVENT_BIT_WAITING_RX_RSP, false);
+
         if(((g_tcp_hdl_ID!=-1)
             &&(g_tx_ID == g_tcp_hdl_ID))
             &&(true == BleWifi_COM_EventStatusGet(g_tIotDataEventGroup , IOT_DATA_EVENT_BIT_CLOUD_CONNECTED)))
         {
             ret=ws_close();
+            printf("[ATS]Cloud disconnect\r\n");
             printf("wt: ws_close(ret=%d)\n", ret);
             g_tx_ID = -1;
             g_tcp_hdl_ID = -1;
@@ -720,6 +733,9 @@ coollink_ws_result_t Coollink_ws_process_error(uint8_t *szOutBuf, uint16_t out_l
             }
             else if(IOT_DATA_WAITING_TYPE_DATA_POST == g_u8WaitingRspType)
             {
+                // if clear the flag for last post retry after keep alive
+                BleWifi_COM_EventStatusSet(g_tIotDataEventGroup, IOT_DATA_EVENT_BIT_LAST_POST_RETRY, false);
+
                 if (IOT_RB_DATA_OK != IoT_Ring_Buffer_CheckEmpty(&g_stIotRbData))
                 {
                     IoT_Ring_Buffer_Pop(&g_stIotRbData , &ptProperity);
@@ -739,17 +755,16 @@ coollink_ws_result_t Coollink_ws_process_error(uint8_t *szOutBuf, uint16_t out_l
             g_u8WaitingRspType = IOT_DATA_WAITING_TYPE_NONE;
             osSemaphoreRelease(g_tAppSemaphoreId);
 
-            Iot_Data_TxTask_MsgSend(IOT_DATA_TX_MSG_CLOUD_POST, NULL, 0);
-
-            stSetDtim.u32DtimValue = BleWifi_Wifi_GetDtimSetting();
-            stSetDtim.u32DtimEventBit = BW_WIFI_DTIM_EVENT_BIT_TX_USE;
-            BleWifi_Wifi_Set_Config(BLEWIFI_WIFI_SET_DTIM , (void *)&stSetDtim);
-
             if(1 == IsPrntPostRlt)
             {
                 printf("[ATS]WIFI Send Data success(%llu)\r\n", result);
             }
 
+            Iot_Data_TxTask_MsgSend(IOT_DATA_TX_MSG_CLOUD_POST, NULL, 0);
+
+            stSetDtim.u32DtimValue = BleWifi_Wifi_GetDtimSetting();
+            stSetDtim.u32DtimEventBit = BW_WIFI_DTIM_EVENT_BIT_TX_USE;
+            BleWifi_Wifi_Set_Config(BLEWIFI_WIFI_SET_DTIM , (void *)&stSetDtim);
         }
         else if(g_msgid != result)
         {

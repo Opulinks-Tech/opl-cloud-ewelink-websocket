@@ -340,7 +340,10 @@ static void _BwBleFsm_Remove_Pair_CMD(uint16_t u16CheckReq)
 
             memset(&rxEvent , 0 , sizeof(osEvent));
             rxEvent = osMessageGet(g_tBleCMDQ_Id , 0); // pop from queue
-            free(rxEvent.value.p);
+            if (rxEvent.status == osEventMessage)
+            {
+                free(rxEvent.value.p);
+            }
 
             g_u8BleCMDWaitingFlag = BLEWIFI_BLE_EXEC_CMD_CONTINUE;
 
@@ -1109,7 +1112,10 @@ static int32_t BleWifi_Ble_FSM_MsgHandler(T_BleWifi_Ble_FSM_MsgHandlerTbl tHande
             //remove cmd
             memset(&rxEvent , 0 , sizeof(osEvent));
             rxEvent = osMessageGet(g_tBleCMDQ_Id , 0); // pop from queue
-            free(rxEvent.value.p);
+            if (rxEvent.status == osEventMessage)
+            {
+                free(rxEvent.value.p);
+            }
 
             g_u8BleCMDWaitingFlag = BLEWIFI_BLE_EXEC_CMD_CONTINUE;
             if(BleWifi_Ble_IsQueueEmpty(g_tBleCMDQ_Id) == false)  // cmdq is not empty

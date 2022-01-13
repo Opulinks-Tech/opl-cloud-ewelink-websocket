@@ -54,6 +54,7 @@ Head Block of The File
 #include "hal_vic.h"
 #include "boot_sequence.h"
 #include "hal_wdt.h"
+#include "ps_patch.h"
 
 #include "app_main.h"
 #include "blewifi_configuration.h"
@@ -155,7 +156,7 @@ void __Patch_EntryPoint(void)
 
     // modify the heap size, from g_ucaMemPartAddr to 0x44F000
     // u32Addr = SCT_PATCH_START + SCT_PATCH_LEN from .sct file
-    u32Addr = 0x004164a0 + 0x0001f400;
+    u32Addr = 0x004164a0 + 0x0001f600;
 
     g_ucaMemPartAddr = (uint8_t*) u32Addr;
     g_ulMemPartTotalSize = 0x44F000 - u32Addr;
@@ -346,6 +347,11 @@ static void Main_AppInit_patch(void)
 {
     // add the application initialization from here
     printf("AppInit\n");
+
+#if (SWITCH_TO_32K_RC == 1)
+#else
+    ps_32k_xtal_measure(200);
+#endif
 
     sys_cfg_clk_set(SYS_CLK_RATE);
 

@@ -15,7 +15,7 @@
         <TargetCommonOption>
           <Device>ARMCM3</Device>
           <Vendor>ARM</Vendor>
-          <PackID>ARM.CMSIS.4.5.0</PackID>
+          <PackID>ARM.CMSIS.5.1.1</PackID>
           <PackURL>http://www.keil.com/pack/</PackURL>
           <Cpu>IRAM(0x20000000,0x20000) IROM(0x00000000,0x40000) CPUTYPE("Cortex-M3") CLOCK(12000000) ESEL ELITTLE</Cpu>
           <FlashUtilSpec></FlashUtilSpec>
@@ -732,16 +732,6 @@
           </Files>
         </Group>
         <Group>
-          <GroupName>http_client</GroupName>
-          <Files>
-            <File>
-              <FileName>httpclient.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\..\..\APS_PATCH\middleware\third_party\httpclient\httpclient.c</FilePath>
-            </File>
-          </Files>
-        </Group>
-        <Group>
           <GroupName>mw_fim</GroupName>
           <Files>
             <File>
@@ -777,7 +767,7 @@
         <TargetCommonOption>
           <Device>ARMCM3</Device>
           <Vendor>ARM</Vendor>
-          <PackID>ARM.CMSIS.4.5.0</PackID>
+          <PackID>ARM.CMSIS.5.1.1</PackID>
           <PackURL>http://www.keil.com/pack/</PackURL>
           <Cpu>IRAM(0x20000000,0x20000) IROM(0x00000000,0x40000) CPUTYPE("Cortex-M3") CLOCK(12000000) ESEL ELITTLE</Cpu>
           <FlashUtilSpec></FlashUtilSpec>
@@ -1490,16 +1480,6 @@
               <FileName>tcp_out_patch.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\..\APS_PATCH\middleware\third_party\lwip-2.0.3\lwip\src\core\tcp_out_patch.c</FilePath>
-            </File>
-          </Files>
-        </Group>
-        <Group>
-          <GroupName>http_client</GroupName>
-          <Files>
-            <File>
-              <FileName>httpclient.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\..\..\APS_PATCH\middleware\third_party\httpclient\httpclient.c</FilePath>
             </File>
           </Files>
         </Group>

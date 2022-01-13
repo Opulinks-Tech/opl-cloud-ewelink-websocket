@@ -24,17 +24,13 @@ static HTTPCLIENT_RESULT httpclient_common_ex(httpclient_t *client, char *url, i
 
     if (g_u8ClientFlag == 0)
     {
-        printf("[ATS]Cloud Init\r\n");
-        printf("[ATS]Cloud connecting\r\n");
         ret = httpclient_connect(client, url);
         if (ret == HTTPCLIENT_OK)
         {
-            printf("[ATS]Cloud connected success\r\n");
             g_u8ClientFlag = 1;
         }
         else
         {
-            printf("[ATS]Cloud connected fail\r\n");
         }
     }
 
@@ -58,7 +54,6 @@ static HTTPCLIENT_RESULT httpclient_common_ex(httpclient_t *client, char *url, i
     if (ret != HTTPCLIENT_OK)
     {
         httpclient_close(client);
-        printf("[ATS]Cloud disconnect\r\n");
         g_u8ClientFlag = 0;
     }
 
@@ -90,7 +85,6 @@ HTTPCLIENT_RESULT Cloud_Http_Close(httpclient_t *client)
     if (g_u8ClientFlag == 1)
     {
         httpclient_close(client);
-        printf("[ATS]Cloud disconnect\r\n");
         g_u8ClientFlag = 0;
     }
 

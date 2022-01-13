@@ -134,6 +134,9 @@ static void Iot_Data_TxTaskEvtHandler_CloudConnection(uint32_t evt_type, void *d
     {
         if (false == BleWifi_COM_EventStatusGet(g_tIotDataEventGroup , IOT_DATA_EVENT_BIT_CLOUD_CONNECTED))
         {
+            printf("[ATS]Cloud Init\r\n");
+            printf("[ATS]Cloud connecting\r\n");
+
             ret = Connect_coolkit_http();
 
             if( 0 == ret)
@@ -141,19 +144,24 @@ static void Iot_Data_TxTaskEvtHandler_CloudConnection(uint32_t evt_type, void *d
                 ret = Connect_coolkit_wss();
                 if(ret == COOLKIT_REG_SUCCESS)
                 {
+                    printf("[ATS]Cloud connected success\r\n");
                     //reg success
                 }
                 else if(ret == COOLKIT_NOT_REG)
                 {
                     //device No Register, return to idle
+                    printf("[ATS]Cloud Reg fail\r\n");
+                    printf("[ATS]Cloud connected fail\r\n");
                 }
                 else
                 {
+                    printf("[ATS]Cloud connected fail\r\n");
                     goto fail;
                 }
             }
             else
             {
+                printf("[ATS]Cloud connected fail\r\n");
                 goto fail;
             }
         }
@@ -300,10 +308,23 @@ static void Iot_Data_TxTaskEvtHandler_CloudDisconnection(uint32_t evt_type, void
 {
     osSemaphoreWait(g_tAppSemaphoreId, osWaitForever);
     osTimerStop(g_tmr_req_date);
+
+    if (true == BleWifi_COM_EventStatusGet(g_tIotDataEventGroup, IOT_DATA_EVENT_BIT_WAITING_RX_RSP))
+    {
+        if (IOT_DATA_WAITING_TYPE_DATA_POST == g_u8WaitingRspType)
+        {
+            printf("[ATS]WIFI Send data fail(%llu)\r\n", g_msgid);
+        }
+    }
+    osTimerStop(g_iot_tx_wait_timeout_timer);
+    g_u8WaitingRspType = IOT_DATA_WAITING_TYPE_NONE;
+    BleWifi_COM_EventStatusSet(g_tIotDataEventGroup, IOT_DATA_EVENT_BIT_WAITING_RX_RSP, false);
+
     if ((g_tcp_hdl_ID!=-1)
         && (true == BleWifi_COM_EventStatusGet(g_tIotDataEventGroup, IOT_DATA_EVENT_BIT_CLOUD_CONNECTED)))
     {
         int Res = ws_close();
+        printf("[ATS]Cloud disconnect\r\n");
         printf("rd: ws_close(ret=%d)\n", Res);
 
         g_tx_ID = -1;
@@ -326,131 +347,143 @@ static void Iot_Data_TxTaskEvtHandler_CloudWaitRxRspTimeout(uint32_t evt_type, v
     uint16_t u16QueueCount = 0;
     uint8_t u8Discard = false;
 
-    printf("Wait Rx Timeout\r\n");
-
-    App_Ctrl_MsgSend(APP_CTRL_MSG_DATA_POST_FAIL , NULL , 0);
-
-    //timeout
-    BleWifi_COM_EventStatusSet(g_tIotDataEventGroup, IOT_DATA_EVENT_BIT_WAITING_RX_RSP, false);
-
-    if(IOT_DATA_WAITING_TYPE_KEEPALIVE == g_u8WaitingRspType)
+    // check need waiting rx rsp
+    if (true == BleWifi_COM_EventStatusGet(g_tIotDataEventGroup, IOT_DATA_EVENT_BIT_WAITING_RX_RSP))
     {
-        osSemaphoreWait(g_tAppSemaphoreId, osWaitForever);
-        g_u8PostRetry_KeepAlive_Cnt ++;
-        osSemaphoreRelease(g_tAppSemaphoreId);
+        printf("Wait Rx Timeout\r\n");
 
-        if(g_u8PostRetry_KeepAlive_Cnt >= IOT_DATA_KEEP_ALIVE_RETRY_MAX)
+        App_Ctrl_MsgSend(APP_CTRL_MSG_DATA_POST_FAIL , NULL , 0);
+
+        //timeout
+        BleWifi_COM_EventStatusSet(g_tIotDataEventGroup, IOT_DATA_EVENT_BIT_WAITING_RX_RSP, false);
+
+        if(IOT_DATA_WAITING_TYPE_KEEPALIVE == g_u8WaitingRspType)
         {
             osSemaphoreWait(g_tAppSemaphoreId, osWaitForever);
-            g_u8PostRetry_KeepAlive_Fail_Round++;
+            g_u8PostRetry_KeepAlive_Cnt ++;
             osSemaphoreRelease(g_tAppSemaphoreId);
 
-            if (IOT_RB_DATA_OK != IoT_Ring_Buffer_CheckEmpty(&g_stKeepAliveQ))
-            {
-                IoT_Ring_Buffer_Pop(&g_stKeepAliveQ , &ptProperity);
-                IoT_Ring_Buffer_ReadIdxUpdate(&g_stKeepAliveQ);
-
-                if(ptProperity.ubData!=NULL)
-                    free(ptProperity.ubData);
-            }
-            osSemaphoreWait(g_tAppSemaphoreId, osWaitForever);
-            g_u8PostRetry_KeepAlive_Cnt = 0;
-            osSemaphoreRelease(g_tAppSemaphoreId);
-
-            if(g_u8PostRetry_KeepAlive_Fail_Round >= IOT_DATA_KEEP_ALIVE_FAIL_ROUND_MAX)
-            {
-                printf("keep alive fail round >= %u , cloud disconnect\r\n" , IOT_DATA_KEEP_ALIVE_FAIL_ROUND_MAX);
-
-                osSemaphoreWait(g_tAppSemaphoreId, osWaitForever);
-                g_u8PostRetry_KeepAlive_Fail_Round = 0; //reset
-                if(true == BleWifi_COM_EventStatusGet(g_tIotDataEventGroup, IOT_DATA_EVENT_BIT_CLOUD_CONNECTED))
-                {
-                    printf("disconnect by self\r\n");
-                    Iot_Data_TxTask_MsgSend(IOT_DATA_TX_MSG_CLOUD_DISCONNECTION, NULL, 0);
-                    Iot_Data_TxTask_MsgSend(IOT_DATA_TX_MSG_CLOUD_CONNECTION, NULL, 0);
-                }
-                osSemaphoreRelease(g_tAppSemaphoreId);
-            }
-        }
-    }
-    else if(IOT_DATA_WAITING_TYPE_DATA_POST == g_u8WaitingRspType)
-    {
-        osSemaphoreWait(g_tAppSemaphoreId, osWaitForever);
-        g_u8PostRetry_IotRbData_Cnt ++;
-        osSemaphoreRelease(g_tAppSemaphoreId);
-
-        IoT_Ring_Buffer_GetQueueCount(&g_stIotRbData , &u16QueueCount);
-
-        //printf("post retry cnt = %u\r\n" , g_u8PostRetry_IotRbData_Cnt);
-
-        if(IOT_DATA_QUEUE_LAST_DATA_CNT == u16QueueCount) // last data
-        {
-            if(g_u8PostRetry_IotRbData_Cnt == IOT_DATA_POST_RETRY_MAX)
+            if(g_u8PostRetry_KeepAlive_Cnt >= IOT_DATA_KEEP_ALIVE_RETRY_MAX)
             {
                 osSemaphoreWait(g_tAppSemaphoreId, osWaitForever);
-                BleWifi_COM_EventStatusSet(g_tIotDataEventGroup, IOT_DATA_EVENT_BIT_POST_FAIL_RECONNECT, true);
-                if(true == BleWifi_COM_EventStatusGet(g_tIotDataEventGroup, IOT_DATA_EVENT_BIT_CLOUD_CONNECTED))
-                {
-//                    printf("disconnect by self\r\n");
-//                    Iot_Data_TxTask_MsgSend(IOT_DATA_TX_MSG_CLOUD_DISCONNECTION, NULL, 0);
-//                    Iot_Data_TxTask_MsgSend(IOT_DATA_TX_MSG_CLOUD_CONNECTION, NULL, 0);
-                }
+                g_u8PostRetry_KeepAlive_Fail_Round++;
                 osSemaphoreRelease(g_tAppSemaphoreId);
-            }
-            else if(g_u8PostRetry_IotRbData_Cnt >= IOT_DATA_LAST_DATA_POST_RETRY_MAX)
-            {
-                u8Discard = true;
-                printf("post cnt = %u discard\r\n" , g_u8PostRetry_IotRbData_Cnt);
-                if (IOT_RB_DATA_OK != IoT_Ring_Buffer_CheckEmpty(&g_stIotRbData))
+
+                if (IOT_RB_DATA_OK != IoT_Ring_Buffer_CheckEmpty(&g_stKeepAliveQ))
                 {
-                    IoT_Ring_Buffer_Pop(&g_stIotRbData , &ptProperity);
-                    IoT_Ring_Buffer_ReadIdxUpdate(&g_stIotRbData);
+                    IoT_Ring_Buffer_Pop(&g_stKeepAliveQ , &ptProperity);
+                    IoT_Ring_Buffer_ReadIdxUpdate(&g_stKeepAliveQ);
 
                     if(ptProperity.ubData!=NULL)
                         free(ptProperity.ubData);
                 }
                 osSemaphoreWait(g_tAppSemaphoreId, osWaitForever);
-                g_u8PostRetry_IotRbData_Cnt = 0;
+                g_u8PostRetry_KeepAlive_Cnt = 0;
                 osSemaphoreRelease(g_tAppSemaphoreId);
-            }
 
-            if(false == u8Discard)
-            {
-                printf("post cnt = %u continues\r\n" , g_u8PostRetry_IotRbData_Cnt);
+                if(g_u8PostRetry_KeepAlive_Fail_Round >= IOT_DATA_KEEP_ALIVE_FAIL_ROUND_MAX)
+                {
+                    printf("keep alive fail round >= %u , cloud disconnect\r\n" , IOT_DATA_KEEP_ALIVE_FAIL_ROUND_MAX);
+
+                    osSemaphoreWait(g_tAppSemaphoreId, osWaitForever);
+                    g_u8PostRetry_KeepAlive_Fail_Round = 0; //reset
+                    if(true == BleWifi_COM_EventStatusGet(g_tIotDataEventGroup, IOT_DATA_EVENT_BIT_CLOUD_CONNECTED))
+                    {
+                        printf("disconnect by self\r\n");
+                        Iot_Data_TxTask_MsgSend(IOT_DATA_TX_MSG_CLOUD_DISCONNECTION, NULL, 0);
+                        Iot_Data_TxTask_MsgSend(IOT_DATA_TX_MSG_CLOUD_CONNECTION, NULL, 0);
+                    }
+                    osSemaphoreRelease(g_tAppSemaphoreId);
+                }
             }
         }
-        else //not last data
+        else if(IOT_DATA_WAITING_TYPE_DATA_POST == g_u8WaitingRspType)
         {
-            if(g_u8PostRetry_IotRbData_Cnt >= IOT_DATA_POST_RETRY_MAX)
-            {
-                u8Discard = true;
-                printf("post cnt = %u discard\r\n" , g_u8PostRetry_IotRbData_Cnt);
-                if (IOT_RB_DATA_OK != IoT_Ring_Buffer_CheckEmpty(&g_stIotRbData))
-                {
-                    IoT_Ring_Buffer_Pop(&g_stIotRbData , &ptProperity);
-                    IoT_Ring_Buffer_ReadIdxUpdate(&g_stIotRbData);
+            osSemaphoreWait(g_tAppSemaphoreId, osWaitForever);
+            g_u8PostRetry_IotRbData_Cnt ++;
+            osSemaphoreRelease(g_tAppSemaphoreId);
 
-                    if(ptProperity.ubData!=NULL)
-                        free(ptProperity.ubData);
-                }
-                osSemaphoreWait(g_tAppSemaphoreId, osWaitForever);
-                g_u8PostRetry_IotRbData_Cnt = 0;
-                BleWifi_COM_EventStatusSet(g_tIotDataEventGroup, IOT_DATA_EVENT_BIT_POST_FAIL_RECONNECT, true);
-                if(true == BleWifi_COM_EventStatusGet(g_tIotDataEventGroup, IOT_DATA_EVENT_BIT_CLOUD_CONNECTED))
+            IoT_Ring_Buffer_GetQueueCount(&g_stIotRbData , &u16QueueCount);
+
+            //printf("post retry cnt = %u\r\n" , g_u8PostRetry_IotRbData_Cnt);
+            printf("[ATS]WIFI Send data fail(%llu)\r\n", g_msgid);
+
+            if(IOT_DATA_QUEUE_LAST_DATA_CNT == u16QueueCount) // last data
+            {
+#if 0
+                if(g_u8PostRetry_IotRbData_Cnt == IOT_DATA_POST_RETRY_MAX)
                 {
-//                    printf("disconnect by self\r\n");
-//                    Iot_Data_TxTask_MsgSend(IOT_DATA_TX_MSG_CLOUD_DISCONNECTION, NULL, 0);
-//                    Iot_Data_TxTask_MsgSend(IOT_DATA_TX_MSG_CLOUD_CONNECTION, NULL, 0);
+                    osSemaphoreWait(g_tAppSemaphoreId, osWaitForever);
+    //                BleWifi_COM_EventStatusSet(g_tIotDataEventGroup, IOT_DATA_EVENT_BIT_POST_FAIL_RECONNECT, true);
+    //                if(true == BleWifi_COM_EventStatusGet(g_tIotDataEventGroup, IOT_DATA_EVENT_BIT_CLOUD_CONNECTED))
+    //                {
+    //                    printf("disconnect by self\r\n");
+    //                    Iot_Data_TxTask_MsgSend(IOT_DATA_TX_MSG_CLOUD_DISCONNECTION, NULL, 0);
+    //                    Iot_Data_TxTask_MsgSend(IOT_DATA_TX_MSG_CLOUD_CONNECTION, NULL, 0);
+    //                }
+                    osSemaphoreRelease(g_tAppSemaphoreId);
                 }
-                osSemaphoreRelease(g_tAppSemaphoreId);
+                else
+#endif
+                if(g_u8PostRetry_IotRbData_Cnt >= IOT_DATA_LAST_DATA_POST_RETRY_MAX)
+                {
+                    // if the last post is fail, set the flag to retry it after keep alive
+                    BleWifi_COM_EventStatusSet(g_tIotDataEventGroup, IOT_DATA_EVENT_BIT_LAST_POST_RETRY, true);
+
+                    u8Discard = true;
+                    printf("post cnt = %u discard\r\n" , g_u8PostRetry_IotRbData_Cnt);
+                    if (IOT_RB_DATA_OK != IoT_Ring_Buffer_CheckEmpty(&g_stIotRbData))
+                    {
+                        IoT_Ring_Buffer_Pop(&g_stIotRbData , &ptProperity);
+                        IoT_Ring_Buffer_ReadIdxUpdate(&g_stIotRbData);
+
+                        if(ptProperity.ubData!=NULL)
+                            free(ptProperity.ubData);
+                    }
+                    osSemaphoreWait(g_tAppSemaphoreId, osWaitForever);
+                    g_u8PostRetry_IotRbData_Cnt = 0;
+                    osSemaphoreRelease(g_tAppSemaphoreId);
+                }
+
+                if(false == u8Discard)
+                {
+                    printf("post cnt = %u continues\r\n" , g_u8PostRetry_IotRbData_Cnt);
+                }
             }
-
-            if(false == u8Discard)
+            else //not last data
             {
-                printf("post cnt = %u continues\r\n" , g_u8PostRetry_IotRbData_Cnt);
+                if(g_u8PostRetry_IotRbData_Cnt >= IOT_DATA_POST_RETRY_MAX)
+                {
+                    u8Discard = true;
+                    printf("post cnt = %u discard\r\n" , g_u8PostRetry_IotRbData_Cnt);
+                    if (IOT_RB_DATA_OK != IoT_Ring_Buffer_CheckEmpty(&g_stIotRbData))
+                    {
+                        IoT_Ring_Buffer_Pop(&g_stIotRbData , &ptProperity);
+                        IoT_Ring_Buffer_ReadIdxUpdate(&g_stIotRbData);
+
+                        if(ptProperity.ubData!=NULL)
+                            free(ptProperity.ubData);
+                    }
+                    osSemaphoreWait(g_tAppSemaphoreId, osWaitForever);
+                    g_u8PostRetry_IotRbData_Cnt = 0;
+    //                BleWifi_COM_EventStatusSet(g_tIotDataEventGroup, IOT_DATA_EVENT_BIT_POST_FAIL_RECONNECT, true);
+    //                if(true == BleWifi_COM_EventStatusGet(g_tIotDataEventGroup, IOT_DATA_EVENT_BIT_CLOUD_CONNECTED))
+    //                {
+    //                    printf("disconnect by self\r\n");
+    //                    Iot_Data_TxTask_MsgSend(IOT_DATA_TX_MSG_CLOUD_DISCONNECTION, NULL, 0);
+    //                    Iot_Data_TxTask_MsgSend(IOT_DATA_TX_MSG_CLOUD_CONNECTION, NULL, 0);
+    //                }
+                    osSemaphoreRelease(g_tAppSemaphoreId);
+                }
+
+                if(false == u8Discard)
+                {
+                    printf("post cnt = %u continues\r\n" , g_u8PostRetry_IotRbData_Cnt);
+                }
             }
         }
     }
+
     osSemaphoreWait(g_tAppSemaphoreId, osWaitForever);
     g_u8WaitingRspType = IOT_DATA_WAITING_TYPE_NONE;
     osSemaphoreRelease(g_tAppSemaphoreId);

@@ -170,7 +170,7 @@ SSID Roaming
 // Dynamic SSID / PASSWORD
 #define BLEWIFI_WIFI_ROAMING_COUNT                  (3)
 // Fixed SSID / PASSWORD, it will be always exist (can't be removed)
-#define BLEWIFI_WIFI_ROAMING_DEFAULT_EN             (1)         // 1: enable / 0: disable
+#define BLEWIFI_WIFI_ROAMING_DEFAULT_EN             (0)         // 1: enable / 0: disable
 #define BLEWIFI_WIFI_ROAMING_DEFAULT_SSID           "0000000000"
 #define BLEWIFI_WIFI_ROAMING_DEFAULT_PASSWORD       "0000000000"
 

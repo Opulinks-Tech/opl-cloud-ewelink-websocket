@@ -22,6 +22,7 @@
 #include "lwip/errno.h"
 #include "sys_cfg.h"
 #include "cmsis_os.h"
+#include "app_configuration.h"
 
 #ifdef HTTPCLIENT_SSL_ENABLE
 #include "mbedtls/debug.h"
@@ -1332,7 +1333,7 @@ static int httpclient_ssl_conn(httpclient_t *client, char *host)
 {
     int authmode = MBEDTLS_SSL_VERIFY_NONE;
     const char *pers = "https";
-    int value, ret = 0;
+    int ret = 0;
     uint32_t flags;
     char port[10] = {0};
     httpclient_ssl_t *ssl;
@@ -1376,12 +1377,12 @@ static int httpclient_ssl_conn(httpclient_t *client, char *host)
     mbedtls_pk_init(&ssl->pkey);
     mbedtls_ctr_drbg_init(&ssl->ctr_drbg);
     mbedtls_entropy_init(&ssl->entropy);
-    if ((value = mbedtls_ctr_drbg_seed(&ssl->ctr_drbg,
+    if ((ret = mbedtls_ctr_drbg_seed(&ssl->ctr_drbg,
                                mbedtls_entropy_func,
                                &ssl->entropy,
                                (const unsigned char*)pers,
                                strlen(pers))) != 0) {
-        DBG("mbedtls_ctr_drbg_seed() failed, value:-0x%x.", -value);
+        DBG("mbedtls_ctr_drbg_seed() failed, ret:-0x%x.", -ret);
         ret = -1;
         goto exit;
     }
@@ -1407,10 +1408,10 @@ static int httpclient_ssl_conn(httpclient_t *client, char *host)
     * Load the trusted CA
     */
     /* cert_len passed in is gotten from sizeof not strlen */
-    if (client->server_cert && ((value = mbedtls_x509_crt_parse(&ssl->cacert,
+    if (client->server_cert && ((ret = mbedtls_x509_crt_parse(&ssl->cacert,
                                         (const unsigned char *)client->server_cert,
                                         client->server_cert_len)) < 0)) {
-        DBG("mbedtls_x509_crt_parse() failed, value:-0x%x.", -value);
+        DBG("mbedtls_x509_crt_parse() failed, ret:-0x%x.", -ret);
         ret = -1;
         goto exit;
     }
@@ -1420,18 +1421,19 @@ static int httpclient_ssl_conn(httpclient_t *client, char *host)
      */
     snprintf(port, sizeof(port), "%d", client->remote_port) ;
     if ((ret = mbedtls_net_connect(&ssl->net_ctx, host, port, MBEDTLS_NET_PROTO_TCP)) != 0) {
-        DBG("failed! mbedtls_net_connect returned %d, port:%s.", ret, port);
+        printf("mbedtls_net_connect() failed, ret:-0x%x\r\n", -ret);
+        printf("[ATS]HTTP connected fail\r\n");
         goto exit;
     }
 
     /*
      * Setup stuff
      */
-    if ((value = mbedtls_ssl_config_defaults(&ssl->ssl_conf,
+    if ((ret = mbedtls_ssl_config_defaults(&ssl->ssl_conf,
                                            MBEDTLS_SSL_IS_CLIENT,
                                            MBEDTLS_SSL_TRANSPORT_STREAM,
                                            MBEDTLS_SSL_PRESET_DEFAULT)) != 0) {
-        DBG("mbedtls_ssl_config_defaults() failed, value:-0x%x.", -value);
+        DBG("mbedtls_ssl_config_defaults() failed, ret:-0x%x.", -ret);
         ret = -1;
         goto exit;
     }
@@ -1452,8 +1454,8 @@ static int httpclient_ssl_conn(httpclient_t *client, char *host)
     mbedtls_ssl_conf_rng(&ssl->ssl_conf, mbedtls_ctr_drbg_random, &ssl->ctr_drbg);
     mbedtls_ssl_conf_dbg(&ssl->ssl_conf, httpclient_debug, NULL);
 
-    if ((value = mbedtls_ssl_setup(&ssl->ssl_ctx, &ssl->ssl_conf)) != 0) {
-        DBG("mbedtls_ssl_setup() failed, value:-0x%x.", -value);
+    if ((ret = mbedtls_ssl_setup(&ssl->ssl_ctx, &ssl->ssl_conf)) != 0) {
+        DBG("mbedtls_ssl_setup() failed, ret:-0x%x.", -ret);
         ret = -1;
         goto exit;
     }
@@ -1472,14 +1474,15 @@ static int httpclient_ssl_conn(httpclient_t *client, char *host)
 
     while ((ret = mbedtls_ssl_handshake(&ssl->ssl_ctx)) != 0) {
         if (ret != MBEDTLS_ERR_SSL_WANT_READ && ret != MBEDTLS_ERR_SSL_WANT_WRITE) {
-            DBG("mbedtls_ssl_handshake() failed, ret:-0x%x.", -ret);
+            printf("mbedtls_ssl_handshake() failed, ret:-0x%x\r\n", -ret);
+            printf("[ATS]HTTP handshake fail\r\n");
             ret = -1;
-            sys_cfg_clk_set(SYS_CFG_CLK_22_MHZ);
+            sys_cfg_clk_set(SYS_CLK_RATE);
             goto exit;
         }
     }
 
-    sys_cfg_clk_set(SYS_CFG_CLK_22_MHZ);
+    sys_cfg_clk_set(SYS_CLK_RATE);
     mbedtls_ssl_conf_read_timeout(&ssl->ssl_conf, SSL_SOCKET_TIMEOUT);
 
     /*

@@ -52,7 +52,9 @@ typedef struct
 // event group bit (0 ~ 23 bits)
 #define IOT_DATA_EVENT_BIT_CLOUD_CONNECTED      0x00000001U
 #define IOT_DATA_EVENT_BIT_WAITING_RX_RSP       0x00000002U
-#define IOT_DATA_EVENT_BIT_POST_FAIL_RECONNECT  0x00080004U  // trigger by post fail
+#define IOT_DATA_EVENT_BIT_POST_FAIL_RECONNECT  0x00000004U  // trigger by post fail
+#define IOT_DATA_EVENT_BIT_LAST_POST_RETRY      0x00000008U  // true: last post fail, then retry
+#define IOT_DATA_EVENT_BIT_TIME_QUERY_WHEN_BOOT 0x00000010U
 
 // the return value of data post
 #define IOT_DATA_POST_RET_CONTINUE_DELETE       (0) // continue post + delete data

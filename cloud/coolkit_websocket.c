@@ -89,11 +89,24 @@ int32_t Coolkit_Cloud_Send(uint8_t *u8aPayload, uint32_t u32PayloadLen)
 
         osSemaphoreWait(g_tAppSemaphoreId, osWaitForever);
         osTimerStop(g_tmr_req_date);
+
+        if (true == BleWifi_COM_EventStatusGet(g_tIotDataEventGroup, IOT_DATA_EVENT_BIT_WAITING_RX_RSP))
+        {
+            if (IOT_DATA_WAITING_TYPE_DATA_POST == g_u8WaitingRspType)
+            {
+                printf("[ATS]WIFI Send data fail(%llu)\r\n", g_msgid);
+            }
+        }
+        osTimerStop(g_iot_tx_wait_timeout_timer);
+        g_u8WaitingRspType = IOT_DATA_WAITING_TYPE_NONE;
+        BleWifi_COM_EventStatusSet(g_tIotDataEventGroup, IOT_DATA_EVENT_BIT_WAITING_RX_RSP, false);
+
         if((g_tcp_hdl_ID!=-1)
             &&(g_tx_ID == g_tcp_hdl_ID)
             && (true == BleWifi_COM_EventStatusGet(g_tIotDataEventGroup , IOT_DATA_EVENT_BIT_CLOUD_CONNECTED)))
         {
             ret = ws_close();
+            printf("[ATS]Cloud disconnect\r\n");
             printf("wt: ws_close(ret=%d)\n", ret);
             g_tx_ID = -1;
             g_tcp_hdl_ID = -1;
@@ -148,11 +161,24 @@ int32_t Coolkit_Cloud_Recv(uint8_t *u8RecvBuf, uint32_t *s32Len)
         printf("[ATS]WIFI Rcv data fail\r\n");
         osSemaphoreWait(g_tAppSemaphoreId, osWaitForever);
         osTimerStop(g_tmr_req_date);
+
+        if (true == BleWifi_COM_EventStatusGet(g_tIotDataEventGroup, IOT_DATA_EVENT_BIT_WAITING_RX_RSP))
+        {
+            if (IOT_DATA_WAITING_TYPE_DATA_POST == g_u8WaitingRspType)
+            {
+                printf("[ATS]WIFI Send data fail(%llu)\r\n", g_msgid);
+            }
+        }
+        osTimerStop(g_iot_tx_wait_timeout_timer);
+        g_u8WaitingRspType = IOT_DATA_WAITING_TYPE_NONE;
+        BleWifi_COM_EventStatusSet(g_tIotDataEventGroup, IOT_DATA_EVENT_BIT_WAITING_RX_RSP, false);
+
         if(((g_tcp_hdl_ID!=-1)
            &&(g_rx_ID == g_tcp_hdl_ID))
            &&(true == BleWifi_COM_EventStatusGet(g_tIotDataEventGroup , IOT_DATA_EVENT_BIT_CLOUD_CONNECTED)))
         {
             int Res = ws_close();
+            printf("[ATS]Cloud disconnect\r\n");
             printf("rd: ws_close(ret=%d)\n", Res);
 
             g_rx_ID = -1;
@@ -742,6 +768,7 @@ int Connect_coolkit_wss(void)
     unsigned char* base64 = NULL;
     size_t  nLen_base64 = 0;
     blewifi_wifi_set_dtim_t stSetDtim = {0};
+    IoT_Properity_t stKeppAlive = {0}; //Keep alive has no data
 
     sprintf(URL , "https://%s:%d/api/ws" , g_pSocket , g_port);
 
@@ -794,12 +821,23 @@ int Connect_coolkit_wss(void)
                 ret = RegDeviceToCoolkit();
                 if(ret == COOLKIT_REG_SUCCESS )
                 {
-                    printf("[ATS]Cloud connected success\r\n");
 //                    ws_ReadTimeoutSet(SSL_SOCKET_TIMEOUT);
 //                    ws_ReadTimeoutSet(SSL_SOCKET_TIMEOUT_FOREVER);
 
+                    g_u8WaitingRspType = IOT_DATA_WAITING_TYPE_NONE;
+                    BleWifi_COM_EventStatusSet(g_tIotDataEventGroup, IOT_DATA_EVENT_BIT_WAITING_RX_RSP, false);
+                    BleWifi_COM_EventStatusSet(g_tIotDataEventGroup, IOT_DATA_EVENT_BIT_LAST_POST_RETRY, false);
+
                     IoT_Ring_Buffer_ResetBuffer(&g_stCloudRspQ);
                     IoT_Ring_Buffer_ResetBuffer(&g_stKeepAliveQ);
+
+                    // when boot, need to query the time information at the 1st connection
+                    if (false == BleWifi_COM_EventStatusGet(g_tIotDataEventGroup, IOT_DATA_EVENT_BIT_TIME_QUERY_WHEN_BOOT))
+                    {
+                        BleWifi_COM_EventStatusSet(g_tIotDataEventGroup, IOT_DATA_EVENT_BIT_TIME_QUERY_WHEN_BOOT, true);
+                        IoT_Ring_Buffer_Push(&g_stKeepAliveQ, &stKeppAlive);
+                    }
+
                     g_tcp_hdl_ID++;
                     g_tcp_hdl_ID = g_tcp_hdl_ID%0xff;
                     BleWifi_COM_EventStatusSet(g_tIotDataEventGroup, IOT_DATA_EVENT_BIT_CLOUD_CONNECTED, true);
@@ -871,7 +909,6 @@ fail:
     stSetDtim.u32DtimEventBit = BW_WIFI_DTIM_EVENT_BIT_TX_USE;
     BleWifi_Wifi_Set_Config(BLEWIFI_WIFI_SET_DTIM , (void *)&stSetDtim);
 
-    printf("[ATS]Cloud connected fail\r\n");
     ws_close();
 
     if(base64!=NULL)
@@ -912,11 +949,24 @@ uint8_t ws_KeepAlive(void)
 
         osSemaphoreWait(g_tAppSemaphoreId, osWaitForever);
         osTimerStop(g_tmr_req_date);
+
+        if (true == BleWifi_COM_EventStatusGet(g_tIotDataEventGroup, IOT_DATA_EVENT_BIT_WAITING_RX_RSP))
+        {
+            if (IOT_DATA_WAITING_TYPE_DATA_POST == g_u8WaitingRspType)
+            {
+                printf("[ATS]WIFI Send data fail(%llu)\r\n", g_msgid);
+            }
+        }
+        osTimerStop(g_iot_tx_wait_timeout_timer);
+        g_u8WaitingRspType = IOT_DATA_WAITING_TYPE_NONE;
+        BleWifi_COM_EventStatusSet(g_tIotDataEventGroup, IOT_DATA_EVENT_BIT_WAITING_RX_RSP, false);
+
         if((g_tcp_hdl_ID!=-1)
             &&(g_tx_ID == g_tcp_hdl_ID)
             && (true == BleWifi_COM_EventStatusGet(g_tIotDataEventGroup , IOT_DATA_EVENT_BIT_CLOUD_CONNECTED)))
         {
             ret = ws_close();
+            printf("[ATS]Cloud disconnect\r\n");
             printf("wt: ws_close(ret=%d)\n", ret);
             g_tx_ID = -1;
             g_tcp_hdl_ID = -1;
@@ -938,6 +988,12 @@ uint8_t ws_KeepAlive(void)
         osSemaphoreRelease(g_tAppSemaphoreId);
 
         BleWifi_COM_EventStatusSet(g_tIotDataEventGroup, IOT_DATA_EVENT_BIT_WAITING_RX_RSP, true);
+
+        if (true == BleWifi_COM_EventStatusGet(g_tIotDataEventGroup, IOT_DATA_EVENT_BIT_LAST_POST_RETRY))
+        {
+            BleWifi_COM_EventStatusSet(g_tIotDataEventGroup, IOT_DATA_EVENT_BIT_LAST_POST_RETRY, false);
+            App_Sensor_Post_To_Cloud(TIMER_POST);
+        }
     }
     return ret;
 }

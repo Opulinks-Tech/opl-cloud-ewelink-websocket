@@ -41,7 +41,6 @@ typedef enum bw_wifi_fsm_msg_type
     BW_WIFI_FSM_MSG_WIFI_REQ_DISCONNECT             = 0x5,      //Wi-Fi disconnnect
     BW_WIFI_FSM_MSG_WIFI_STOP                       = 0x6,      //Wi-Fi stop
 
-    BW_WIFI_FSM_MSG_WIFI_REQ_AUTO_CONNECT_START     = 0x15,     //Wi-Fi Auto connect scan
     BW_WIFI_FSM_MSG_WIFI_REQ_AUTO_CONNECT_SCAN      = 0x16,     //Wi-Fi Auto connect scan
     BW_WIFI_FSM_MSG_WIFI_REQ_AUTO_CONNECT           = 0x17,     //Wi-Fi Auto connect
 
@@ -77,11 +76,12 @@ typedef enum bw_wifi_fsm_msg_type
 
 typedef enum bw_wifi_fsm_cmd_state
 {
-    BW_WIFI_CMD_M3_TIMEOUT = -2,
-    BW_WIFI_CMD_FAILED     = -1,
-    BW_WIFI_CMD_FINISH     =  0,
-    BW_WIFI_CMD_EXECUTING  =  1,
-    BW_WIFI_CMD_NOT_MATCH  =  2,
+    BW_WIFI_CMD_M3_TIMEOUT  = -3,
+    BW_WIFI_CMD_FAILED_NEXT = -2,   // The Cmd is fail, then remove it and put the next Cmd.
+    BW_WIFI_CMD_FAILED      = -1,
+    BW_WIFI_CMD_FINISH      =  0,
+    BW_WIFI_CMD_EXECUTING   =  1,
+    BW_WIFI_CMD_NOT_MATCH   =  2,
 } bw_wifi_fsm_cmd_state_type_e;
 
 typedef enum bw_wifi_fsm_disconnect_reason
@@ -95,9 +95,8 @@ typedef enum bw_wifi_fsm_disconnect_reason
 
 
 #define BW_WIFI_FSM_EVENT_BIT_EXEC_AUTO_CONN                     0x00000001U
-#define BW_WIFI_FSM_EVENT_BIT_EXEC_RESET                         0x00000002U
-#define BW_WIFI_FSM_EVENT_BIT_DHCP_TIMEOUT                       0x00000004U
-#define BW_WIFI_FSM_EVENT_BIT_WIFI_USED                          0x00000008U
+#define BW_WIFI_FSM_EVENT_BIT_DHCP_TIMEOUT                       0x00000002U
+#define BW_WIFI_FSM_EVENT_BIT_WIFI_USED                          0x00000004U
 
 extern uint32_t g_u32AppCtrlAutoConnectIntervalSelect;
 

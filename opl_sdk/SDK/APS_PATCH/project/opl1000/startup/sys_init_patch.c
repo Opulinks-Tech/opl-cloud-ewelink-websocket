@@ -432,6 +432,8 @@ void Sys_RomVersion_patch(void)
  */
 void SysInit_EntryPoint(void)
 {
+    ISR_SetupHardfaultPatch();
+    
     if (Boot_CheckWarmBoot())
         return;
 
@@ -497,7 +499,7 @@ void SysInit_EntryPoint(void)
     Hal_Aux_PatchInit();
     
     // 14. os
-	  osPatchInit();
+    osPatchInit();
 
     // 15. util api
     Util_Func_PatchInit();

@@ -10,6 +10,7 @@
 #include "lwip/netdb.h"
 #include "lwip/dns.h"
 #include "sys_cfg.h"
+#include "app_configuration.h"
 
 #ifdef HTTP_ENABLE_TLS
 
@@ -404,6 +405,7 @@ int ssl_Establish(mbedtls_net_context *server_fd,
                                    Port, MBEDTLS_NET_PROTO_TCP)) != 0)
     {
         printf("mbedtls_net_connect_ex returned -0x%x\n\n", -ret);
+        printf("[ATS]Websocket connected fail\r\n");
         return false;
     }
 
@@ -469,11 +471,12 @@ int ssl_Establish(mbedtls_net_context *server_fd,
         if (ret != MBEDTLS_ERR_SSL_WANT_READ && ret != MBEDTLS_ERR_SSL_WANT_WRITE)
         {
             printf("mbedtls_ssl_handshake returned -0x%x\n\n", -ret);
-            sys_cfg_clk_set(SYS_CFG_CLK_22_MHZ);
+            printf("[ATS]Websocket handshake fail\r\n");
+            sys_cfg_clk_set(SYS_CLK_RATE);
             return false;
         }
     }
-    sys_cfg_clk_set(SYS_CFG_CLK_22_MHZ);
+    sys_cfg_clk_set(SYS_CLK_RATE);
     mbedtls_ssl_conf_read_timeout(conf, SSL_SOCKET_TIMEOUT);
 
     /*

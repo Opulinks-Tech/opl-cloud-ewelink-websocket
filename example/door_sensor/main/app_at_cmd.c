@@ -42,6 +42,7 @@
 #include "mw_ota.h"
 #include "app_at_cmd.h"
 #include "app_ctrl.h"
+#include "os_partition_pool_patch.h"
 
 //#define AT_LOG                      msg_print_uart1
 #define AT_LOG(...)
@@ -1666,6 +1667,99 @@ done:
     return iRet;
 }
 
+void MemoryReachThresholdCb(void)
+{
+    // dump the memory information
+    osMemoryPoolPcbInfoDump();
+    osMemoryPoolBlockInfoDump();
+}
+
+int app_at_cmd_sys_memory_check(char *buf, int len, int mode)
+{
+    int iRet = 0;
+    int argc = 0;
+    char *argv[AT_MAX_CMD_ARGS] = {0};
+
+    int32_t s32Enable;
+    int32_t s32Threshold;
+    int32_t s32PeriodMs;
+
+    if (!at_cmd_buf_to_argc_argv(buf, &argc, argv, AT_MAX_CMD_ARGS))
+    {
+        goto done;
+    }
+
+    switch (mode)
+    {
+        case AT_CMD_MODE_SET:
+        {
+            // at+memchk=<enable>[,<threshold>,<period>]
+
+            // disable the memory check
+            // at+memchk=<enable>
+            if (argc == 2)
+            {
+                s32Enable = strtol(argv[1], NULL, 0);
+
+                if (s32Enable != 0)
+                {
+                    AT_LOG("invalid param number\r\n");
+                    goto done;
+                }
+
+                vPartitionPoolDetectStop();
+            }
+            // enable the memory check
+            // at+memchk=<enable>,<threshold>,<period>
+            else if (argc == 4)
+            {
+                s32Enable = strtol(argv[1], NULL, 0);
+                s32Threshold = strtol(argv[2], NULL, 0);
+                s32PeriodMs = strtol(argv[3], NULL, 0);
+
+                if (s32Enable != 1)
+                {
+                    AT_LOG("invalid param number\r\n");
+                    goto done;
+                }
+
+                if (s32Threshold <= 0)
+                {
+                    AT_LOG("invalid param number\r\n");
+                    goto done;
+                }
+
+                if (s32PeriodMs <= 0)
+                {
+                    AT_LOG("invalid param number\r\n");
+                    goto done;
+                }
+
+                vPartitionPoolDetectStart(s32Threshold, s32PeriodMs, MemoryReachThresholdCb);
+            }
+
+            break;
+        }
+
+        default:
+            goto done;
+    }
+
+    iRet = 1;
+
+done:
+    if (iRet)
+    {
+        msg_print_uart1("OK\r\n");
+    }
+    else
+    {
+        msg_print_uart1("ERROR\r\n");
+    }
+
+    return iRet;
+}
+
 
 at_command_t g_taAppAtCmd[] =
 {
@@ -1688,6 +1782,8 @@ at_command_t g_taAppAtCmd[] =
     { "at+gpio_read",   app_at_cmd_sys_gpio_read,          "Check Level of GPIO num" },
     { "at+delete_data", app_at_cmd_sys_delete_data,        "Delete product data" },
     { "at+ckcfg",       app_at_cmd_sys_ck_cfg,             "CoolKit Configuration" },
+
+    { "at+memchk",      app_at_cmd_sys_memory_check,       "Memory Check" },
 
 #if (IOT_WIFI_OTA_FUNCTION_EN == 1)
     { "at+ota",             app_at_cmd_sys_do_wifi_ota,         "Do Wifi OTA" },
