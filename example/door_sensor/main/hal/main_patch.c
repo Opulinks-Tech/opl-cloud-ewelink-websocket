@@ -156,7 +156,7 @@ void __Patch_EntryPoint(void)
 
     // modify the heap size, from g_ucaMemPartAddr to 0x44F000
     // u32Addr = SCT_PATCH_START + SCT_PATCH_LEN from .sct file
-    u32Addr = 0x004164a0 + 0x0001f600;
+    u32Addr = 0x004164a0 + 0x0001f900;
 
     g_ucaMemPartAddr = (uint8_t*) u32Addr;
     g_ulMemPartTotalSize = 0x44F000 - u32Addr;

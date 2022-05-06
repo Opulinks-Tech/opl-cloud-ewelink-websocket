@@ -30,6 +30,8 @@
 
 #define CLOUD_ACK_POST_TIMEOUT   (1500)  //ms
 
+#define CLOUD_RSP_TCP_ACK_TIMEOUT (100)  //ms
+
 enum _coollink_ws_result_t {
     COOLLINK_WS_RES_OK = 0,
     COOLLINK_WS_RES_ERR = -1

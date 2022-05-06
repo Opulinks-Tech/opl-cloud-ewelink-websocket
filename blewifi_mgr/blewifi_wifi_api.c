@@ -15,6 +15,7 @@
 #include "app_configuration.h"
 #include "blewifi_server_app.h"
 #include "blewifi_ble_api.h"
+#include "controller_wifi.h"
 
 #include "cmsis_os.h"
 #include "wifi_api.h"
@@ -126,6 +127,7 @@ uint32_t BleWifi_Wifi_GetDtimSetting(void)
 
 int _BleWifi_Wifi_SetDTIM(blewifi_wifi_set_dtim_t *pstDtimSetting)
 {
+    static uint32_t g_u32DtimPrevious = 255;
     uint32_t u32DtimInterval;
 
     if(pstDtimSetting == NULL)
@@ -153,7 +155,8 @@ int _BleWifi_Wifi_SetDTIM(blewifi_wifi_set_dtim_t *pstDtimSetting)
                 ||(true == BleWifi_COM_EventStatusGet(g_tDtimEventGroup, BW_WIFI_DTIM_EVENT_BIT_RX_USE))
                 ||(true == BleWifi_COM_EventStatusGet(g_tDtimEventGroup, BW_WIFI_DTIM_EVENT_BIT_OTA_USE))
                 ||(true == BleWifi_COM_EventStatusGet(g_tDtimEventGroup, BW_WIFI_DTIM_EVENT_BIT_DHCP_USE))
-                ||(true == BleWifi_COM_EventStatusGet(g_tDtimEventGroup, BW_WIFI_DTIM_EVENT_BIT_TX_CLOUD_ACK_POST)))
+                ||(true == BleWifi_COM_EventStatusGet(g_tDtimEventGroup, BW_WIFI_DTIM_EVENT_BIT_TX_CLOUD_ACK_POST))
+                ||(true == BleWifi_COM_EventStatusGet(g_tDtimEventGroup, BW_WIFI_DTIM_EVENT_BIT_TCP_ACK)))
             {
                 printf("Dtim no change\r\n");
                 return 0;
@@ -167,11 +170,30 @@ int _BleWifi_Wifi_SetDTIM(blewifi_wifi_set_dtim_t *pstDtimSetting)
     if (u32DtimInterval > 255)
         u32DtimInterval = 255;
 
+    // no change
+    if (g_u32DtimPrevious == u32DtimInterval)
+    {
+        printf("Dtim no change 2\r\n");
+        return 0;
+    }
+
+    g_u32DtimPrevious = u32DtimInterval;
+
     /* DTIM: skip n-1 */
     if (u32DtimInterval == 0)
-        return wifi_config_set_skip_dtim(0, false);
+    {
+        printf("[ATS] Set Skip DTIM count = %u\r\n", 0);
+        wifi_config_set_skip_dtim(0, false);
+
+        return 0;
+    }
     else
-        return wifi_config_set_skip_dtim(u32DtimInterval - 1, false);
+    {
+        printf("[ATS] Set Skip DTIM count = %u\r\n", u32DtimInterval - 1);
+        wifi_config_set_skip_dtim(u32DtimInterval - 1, false);
+
+        return 0;
+    }
 }
 
 void BleWifi_Wifi_UpdateBeaconInfo(void)

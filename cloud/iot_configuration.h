@@ -39,7 +39,7 @@ Cloud HTTP
 /*
 Iot TX wait rsp timeout
 */
-#define IOT_TX_WAIT_TIMEOUT_TIME            (20000) //ms
+#define IOT_TX_WAIT_TIMEOUT_TIME            (40000) //ms
 
 #endif /* __IOT_CONFIGURATION_H__ */
 

@@ -32,6 +32,7 @@ osTimerId g_iot_tx_wait_timeout_timer = NULL;
 osTimerId g_iot_tx_ack_post_timeout_timer = NULL;
 osTimerId g_iot_tx_sw_reset_timeout_timer = NULL;  // TX
 osTimerId g_iot_tx_cloud_connect_retry_timer = NULL;  // cloud reconnect retry interval timer
+osTimerId g_iot_rsp_tcp_ack_timer = NULL;   // the TCP ACK for response
 
 #define CLOUD_CONNECT_RETRY_INTERVAL_TBL_NUM (6)
 uint32_t g_u32aCloudRetryIntervalTbl[CLOUD_CONNECT_RETRY_INTERVAL_TBL_NUM] =
@@ -76,6 +77,7 @@ static void Iot_Data_TxTaskEvtHandler_CloudDisconnection(uint32_t evt_type, void
 static void Iot_Data_TxTaskEvtHandler_CloudWaitRxRspTimeout(uint32_t evt_type, void *data, int len);
 static void Iot_Data_TxTaskEvtHandler_CloudPost(uint32_t evt_type, void *data, int len);
 static void Iot_Data_TxTaskEvtHandler_AckPostTimeout(uint32_t evt_type, void *data, int len);
+static void Iot_Data_TxTaskEvtHandler_RspTcpAckTimeout(uint32_t evt_type, void *data, int len);
 
 static T_IoT_Data_EvtHandlerTbl g_tIotDataTxTaskEvtHandlerTbl[] =
 {
@@ -88,6 +90,7 @@ static T_IoT_Data_EvtHandlerTbl g_tIotDataTxTaskEvtHandlerTbl[] =
     {IOT_DATA_TX_MSG_CLOUD_WAIT_RX_RSP_TIMEOUT, Iot_Data_TxTaskEvtHandler_CloudWaitRxRspTimeout},
     {IOT_DATA_TX_MSG_CLOUD_POST,                Iot_Data_TxTaskEvtHandler_CloudPost},
     {IOT_DATA_TX_MSG_CLOUD_POST_ACK_TIMEOUT,    Iot_Data_TxTaskEvtHandler_AckPostTimeout},
+    {IOT_DATA_TX_MSG_CLOUD_RSP_TCP_ACK_TIMEOUT, Iot_Data_TxTaskEvtHandler_RspTcpAckTimeout},
 
     {0xFFFFFFFF,                            NULL}
 };
@@ -546,6 +549,17 @@ static void Iot_Data_TxTaskEvtHandler_AckPostTimeout(uint32_t evt_type, void *da
     BleWifi_Wifi_Set_Config(BLEWIFI_WIFI_SET_DTIM , (void *)&stSetDtim);
 }
 
+static void Iot_Data_TxTaskEvtHandler_RspTcpAckTimeout(uint32_t evt_type, void *data, int len)
+{
+    blewifi_wifi_set_dtim_t stSetDtim = {0};
+
+    stSetDtim.u32DtimValue = BleWifi_Wifi_GetDtimSetting();
+    stSetDtim.u32DtimEventBit = BW_WIFI_DTIM_EVENT_BIT_TCP_ACK;
+    BleWifi_Wifi_Set_Config(BLEWIFI_WIFI_SET_DTIM , (void *)&stSetDtim);
+
+    BleWifi_COM_EventStatusSet(g_tIotDataEventGroup, IOT_DATA_EVENT_BIT_WAITING_TCP_ACK, false);
+}
+
 void Iot_Data_TxTaskEvtHandler(uint32_t evt_type, void *data, int len)
 {
     uint32_t i = 0;
@@ -771,6 +785,11 @@ static void Iot_data_cloud_connect_retry_TimeOutCallBack(void const *argu)
     Iot_Data_TxTask_MsgSend(IOT_DATA_TX_MSG_CLOUD_CONNECTION, NULL, 0);
 }
 
+static void Iot_data_rsp_tcp_ack_TimeOutCallBack(void const *argu)
+{
+    Iot_Data_TxTask_MsgSend(IOT_DATA_TX_MSG_CLOUD_RSP_TCP_ACK_TIMEOUT, NULL, 0);
+}
+
 #if (IOT_DEVICE_DATA_TX_EN == 1) || (IOT_DEVICE_DATA_RX_EN == 1)
 EventGroupHandle_t g_tIotDataEventGroup;
 
@@ -831,6 +850,14 @@ void Iot_Data_Init(void)
     if (g_iot_tx_cloud_connect_retry_timer == NULL)
     {
         BLEWIFI_ERROR("BLEWIFI: create g_iot_tx_cloud_connect_retry_timer timeout timer fail \r\n");
+    }
+
+    /* create iot rsp tcp ack timeout timer */
+    tTimerDef.ptimer = Iot_data_rsp_tcp_ack_TimeOutCallBack;
+    g_iot_rsp_tcp_ack_timer = osTimerCreate(&tTimerDef, osTimerOnce, NULL);
+    if (g_iot_rsp_tcp_ack_timer == NULL)
+    {
+        BLEWIFI_ERROR("BLEWIFI: create g_iot_rsp_tcp_ack_timer timeout timer fail \r\n");
     }
 }
 #endif  // end of #if (IOT_DEVICE_DATA_TX_EN == 1) || (IOT_DEVICE_DATA_RX_EN == 1)

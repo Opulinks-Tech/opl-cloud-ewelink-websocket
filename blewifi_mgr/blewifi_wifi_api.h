@@ -175,6 +175,7 @@ typedef enum {
 #define BW_WIFI_DTIM_EVENT_BIT_DHCP_USE               0x00000008U
 #define BW_WIFI_DTIM_EVENT_BIT_APP_AT_USE             0x00000010U
 #define BW_WIFI_DTIM_EVENT_BIT_TX_CLOUD_ACK_POST      0x00000020U
+#define BW_WIFI_DTIM_EVENT_BIT_TCP_ACK                0x00000040U
 ////////////////////////////////////////////////////////////
 
 

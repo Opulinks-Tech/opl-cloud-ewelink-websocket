@@ -760,7 +760,20 @@ coollink_ws_result_t Coollink_ws_process_error(uint8_t *szOutBuf, uint16_t out_l
                 printf("[ATS]WIFI Send Data success(%llu)\r\n", result);
             }
 
+#if 0
             Iot_Data_TxTask_MsgSend(IOT_DATA_TX_MSG_CLOUD_POST, NULL, 0);
+#else
+            stSetDtim.u32DtimValue = 0;
+            stSetDtim.u32DtimEventBit = BW_WIFI_DTIM_EVENT_BIT_TCP_ACK;
+            BleWifi_Wifi_Set_Config(BLEWIFI_WIFI_SET_DTIM , (void *)&stSetDtim);
+
+            osTimerStop(g_iot_rsp_tcp_ack_timer);
+            osTimerStart(g_iot_rsp_tcp_ack_timer, CLOUD_RSP_TCP_ACK_TIMEOUT);
+
+            BleWifi_COM_EventStatusSet(g_tIotDataEventGroup, IOT_DATA_EVENT_BIT_WAITING_TCP_ACK, true);
+
+            Iot_Data_TxTask_MsgSend(IOT_DATA_TX_MSG_CLOUD_POST, NULL, 0);
+#endif
 
             stSetDtim.u32DtimValue = BleWifi_Wifi_GetDtimSetting();
             stSetDtim.u32DtimEventBit = BW_WIFI_DTIM_EVENT_BIT_TX_USE;

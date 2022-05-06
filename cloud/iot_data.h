@@ -28,6 +28,7 @@ typedef enum iot_data_tx_msg_type
     IOT_DATA_TX_MSG_CLOUD_WAIT_RX_RSP_TIMEOUT,
     IOT_DATA_TX_MSG_CLOUD_POST,
     IOT_DATA_TX_MSG_CLOUD_POST_ACK_TIMEOUT,
+    IOT_DATA_TX_MSG_CLOUD_RSP_TCP_ACK_TIMEOUT,
 
     IOT_DATA_TX_MSG_NUM
 } iot_data_tx_msg_type_e;
@@ -55,6 +56,7 @@ typedef struct
 #define IOT_DATA_EVENT_BIT_POST_FAIL_RECONNECT  0x00000004U  // trigger by post fail
 #define IOT_DATA_EVENT_BIT_LAST_POST_RETRY      0x00000008U  // true: last post fail, then retry
 #define IOT_DATA_EVENT_BIT_TIME_QUERY_WHEN_BOOT 0x00000010U
+#define IOT_DATA_EVENT_BIT_WAITING_TCP_ACK      0x00000020U  // when got the response, need to send back the TCP ACK
 
 // the return value of data post
 #define IOT_DATA_POST_RET_CONTINUE_DELETE       (0) // continue post + delete data
@@ -80,6 +82,7 @@ extern uint8_t g_u8PostRetry_IotRbData_Cnt;
 extern uint8_t g_u8CloudRetryIntervalIdx;
 
 extern osTimerId g_iot_tx_ack_post_timeout_timer;
+extern osTimerId g_iot_rsp_tcp_ack_timer;
 
 extern uint8_t g_u8PostRetry_KeepAlive_Fail_Round;
 

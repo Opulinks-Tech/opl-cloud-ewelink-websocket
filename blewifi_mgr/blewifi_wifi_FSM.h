@@ -76,8 +76,7 @@ typedef enum bw_wifi_fsm_msg_type
 
 typedef enum bw_wifi_fsm_cmd_state
 {
-    BW_WIFI_CMD_M3_TIMEOUT  = -3,
-    BW_WIFI_CMD_FAILED_NEXT = -2,   // The Cmd is fail, then remove it and put the next Cmd.
+    BW_WIFI_CMD_M3_TIMEOUT  = -2,
     BW_WIFI_CMD_FAILED      = -1,
     BW_WIFI_CMD_FINISH      =  0,
     BW_WIFI_CMD_EXECUTING   =  1,
