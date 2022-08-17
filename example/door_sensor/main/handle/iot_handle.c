@@ -330,8 +330,14 @@ void Iot_Post_Data_Construct(IoT_Properity_t *ptProperity , uint8_t *pu8Data, ui
 
     u32Offset = sprintf( ps8Buf, "{");
 
-    if(g_IsInitPost)
+    if (g_IsInitPost == 2)
     {
+        /*
+            "init":1
+            "fwVersion":"1000.2.916"
+            "mac":"884a18120525"
+            "chipid":"2"
+        */
 
         u32Offset += sprintf( ps8Buf +u32Offset, "\"init\":1");
         already_wrt_flag = 1;
@@ -359,24 +365,29 @@ void Iot_Post_Data_Construct(IoT_Properity_t *ptProperity , uint8_t *pu8Data, ui
 
         already_wrt_flag = 1;
 
-
         if (already_wrt_flag)
             u32Offset += sprintf( ps8Buf +u32Offset, ",");
-        u32Offset += sprintf( ps8Buf +u32Offset, "\"chipID\":\"%d\"", uwChipId);
+        u32Offset += sprintf( ps8Buf +u32Offset, "\"chipid\":\"%d\"", uwChipId);
         already_wrt_flag = 1;
 
-
         g_IsInitPost = 0;
+
+        // !!! the timestamp is needed to update in the first time data post
+        pstSensorData->u64TimeStamp = Coolkit_Cloud_GetNewSeqID();
     }
 
-
-
+    /*
+        "type":%d
+        "switch":"%s"
+        "rssi":%d
+        "battery":%d
+    */
 
 //    if( pstSensorData->ubaType==2 || pstSensorData->ubaType==3 )
     {
         if (already_wrt_flag)
             u32Offset += sprintf( ps8Buf +u32Offset, ",");
-        u32Offset += sprintf( ps8Buf +u32Offset, "\"type\":\"%d\"", pstSensorData->ubaType);
+        u32Offset += sprintf( ps8Buf +u32Offset, "\"type\":%d", pstSensorData->ubaType);
         already_wrt_flag = 1;
 
         if (already_wrt_flag)
@@ -399,12 +410,12 @@ void Iot_Post_Data_Construct(IoT_Properity_t *ptProperity , uint8_t *pu8Data, ui
 
     if (already_wrt_flag)
         u32Offset += sprintf( ps8Buf +u32Offset, ",");
-    u32Offset += sprintf( ps8Buf +u32Offset, "\"rssi\":\"%d\"", rssi);
+    u32Offset += sprintf( ps8Buf +u32Offset, "\"rssi\":%d", rssi);
     already_wrt_flag = 1;
 
     if (already_wrt_flag)
         u32Offset += sprintf( ps8Buf +u32Offset, ",");
-    u32Offset += sprintf( ps8Buf +u32Offset, "\"battery\":\"%d\"", (int)fVBatPercentage);
+    u32Offset += sprintf( ps8Buf +u32Offset, "\"battery\":%d", (int)fVBatPercentage);
     already_wrt_flag = 1;
 
     u32Offset += sprintf( ps8Buf + u32Offset, "}");
@@ -412,6 +423,15 @@ void Iot_Post_Data_Construct(IoT_Properity_t *ptProperity , uint8_t *pu8Data, ui
     if(strlen(ps8Buf)<5) return;
 
     printf("Device Act Update: %s\n", ps8Buf);
+
+    /*
+        "action":"update"
+        "deviceid":"%s"
+        "apikey":"%s"
+        "userAgent":"device"
+        "d_seq":%llu
+        "params":%s
+    */
 
     //g_msgid = Coolkit_Cloud_GetNewSeqID();
     g_msgid = pstSensorData->u64TimeStamp;
@@ -421,9 +441,6 @@ void Iot_Post_Data_Construct(IoT_Properity_t *ptProperity , uint8_t *pu8Data, ui
     g_Apikey,
     g_msgid,
     ps8Buf);
-
-
-
 }
 
 int8_t Iot_Contruct_Post_Data_And_Send(IoT_Properity_t *ptProperity)
@@ -550,6 +567,14 @@ coollink_ws_result_t Coollink_ws_process_update(uint8_t *szOutBuf, uint16_t out_
         printf("ubData malloc fail\r\n");
         return COOLLINK_WS_RES_ERR;
     }
+
+    /*
+        "error":%d
+        "deviceid":"%s"
+        "apikey":"%s"
+        "userAgent":"device"
+        "sequence":"%s"
+    */
 
     u32Offset = sprintf((char *)stCloudRsp.ubData , COOLLINK_WS_REPLY_BODY,
     0,
@@ -730,6 +755,11 @@ coollink_ws_result_t Coollink_ws_process_error(uint8_t *szOutBuf, uint16_t out_l
                 g_u8PostRetry_KeepAlive_Cnt = 0;
                 g_u8PostRetry_KeepAlive_Fail_Round = 0;
                 osSemaphoreRelease(g_tAppSemaphoreId);
+
+                if (g_IsInitPost == 1)
+                {
+                    g_IsInitPost = 2;
+                }
             }
             else if(IOT_DATA_WAITING_TYPE_DATA_POST == g_u8WaitingRspType)
             {

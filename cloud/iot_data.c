@@ -384,7 +384,13 @@ static void Iot_Data_TxTaskEvtHandler_CloudWaitRxRspTimeout(uint32_t evt_type, v
                 g_u8PostRetry_KeepAlive_Cnt = 0;
                 osSemaphoreRelease(g_tAppSemaphoreId);
 
-                if(g_u8PostRetry_KeepAlive_Fail_Round >= IOT_DATA_KEEP_ALIVE_FAIL_ROUND_MAX)
+                if (g_IsInitPost == 1)
+                {
+                    IoT_Properity_t stKeppAlive = {0}; //Keep alive has no data
+
+                    IoT_Ring_Buffer_Push(&g_stKeepAliveQ, &stKeppAlive);
+                }
+                else if(g_u8PostRetry_KeepAlive_Fail_Round >= IOT_DATA_KEEP_ALIVE_FAIL_ROUND_MAX)
                 {
                     printf("keep alive fail round >= %u , cloud disconnect\r\n" , IOT_DATA_KEEP_ALIVE_FAIL_ROUND_MAX);
 

@@ -27,7 +27,9 @@ osSemaphoreId g_tAppSemaphoreId;
 int g_tcp_hdl_ID=-1;
 int g_tx_ID=-1;
 int g_rx_ID=-1;
-uint8_t g_IsInitPost = 0;
+uint8_t g_IsInitPost = 0;       // 0: idle
+                                // 1: need to update the timestamp
+                                // 2: need to update init setttings
 uint16_t g_u16HbInterval=60;
 
 uint64_t g_u64TmpSeqId = 0;
@@ -830,13 +832,7 @@ int Connect_coolkit_wss(void)
 
                     IoT_Ring_Buffer_ResetBuffer(&g_stCloudRspQ);
                     IoT_Ring_Buffer_ResetBuffer(&g_stKeepAliveQ);
-
-                    // when boot, need to query the time information at the 1st connection
-                    if (false == BleWifi_COM_EventStatusGet(g_tIotDataEventGroup, IOT_DATA_EVENT_BIT_TIME_QUERY_WHEN_BOOT))
-                    {
-                        BleWifi_COM_EventStatusSet(g_tIotDataEventGroup, IOT_DATA_EVENT_BIT_TIME_QUERY_WHEN_BOOT, true);
-                        IoT_Ring_Buffer_Push(&g_stKeepAliveQ, &stKeppAlive);
-                    }
+                    IoT_Ring_Buffer_Push(&g_stKeepAliveQ, &stKeppAlive);
 
                     g_tcp_hdl_ID++;
                     g_tcp_hdl_ID = g_tcp_hdl_ID%0xff;
@@ -852,7 +848,17 @@ int Connect_coolkit_wss(void)
                     osSemaphoreRelease(g_tAppSemaphoreId);
 
                     IoT_Ring_Buffer_ResetBuffer(&g_stIotRbData);
-                    App_Sensor_Post_To_Cloud(TIMER_POST);
+
+                    // when boot, need to query the time information at the 1st connection
+                    if (false == BleWifi_COM_EventStatusGet(g_tIotDataEventGroup, IOT_DATA_EVENT_BIT_TIME_QUERY_WHEN_BOOT))
+                    {
+                        BleWifi_COM_EventStatusSet(g_tIotDataEventGroup, IOT_DATA_EVENT_BIT_TIME_QUERY_WHEN_BOOT, true);
+                        App_Sensor_Post_To_Cloud(BleWifi_COM_EventStatusGet(g_tAppCtrlEventGroup, APP_CTRL_EVENT_BIT_DOOR) ? DOOR_OPEN:DOOR_CLOSE);
+                    }
+                    else
+                    {
+                        App_Sensor_Post_To_Cloud(TIMER_POST);
+                    }
 
                     #else
                     if(IOT_RB_DATA_OK == IoT_Ring_Buffer_CheckEmpty(&g_stIotRbData))
